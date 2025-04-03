@@ -299,13 +299,30 @@ async function handleWordClick(event) {
 }
 
 function positionTranslationModal(event) {
-    // Position the modal near the mouse click
-    const x = event.clientX;
-    const y = event.clientY;
+    // Position the modal exactly near the clicked word
+    const selection = window.getSelection();
     
-    translationModal.style.display = 'block';
-    translationModal.style.left = `${x}px`;
-    translationModal.style.top = `${y + 20}px`;
+    // Get the range of the selection
+    if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        
+        // Position the modal right below the selected word
+        const x = rect.left;
+        const y = rect.bottom;
+        
+        translationModal.style.display = 'block';
+        translationModal.style.left = `${x}px`;
+        translationModal.style.top = `${y + 5}px`;
+    } else {
+        // Fallback to mouse position if range not available
+        const x = event.clientX;
+        const y = event.clientY;
+        
+        translationModal.style.display = 'block';
+        translationModal.style.left = `${x}px`;
+        translationModal.style.top = `${y + 5}px`;
+    }
 }
 
 function hideTranslationModal() {
