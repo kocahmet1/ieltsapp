@@ -49,7 +49,7 @@ def generate_practice():
         prompt = """
         Generate an IELTS reading practice set with the following components:
         
-        1. A reading passage (500-700 words) on a general interest topic.
+        1. A reading passage (800-1000 words) on a general interest topic.
         2. 3-5 "fill-in-the-blank" questions based on the passage.
         3. For each question, include the exact sentence from the passage where the answer can be found.
         
