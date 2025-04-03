@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veritas IELTS Practice App</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Veritas IELTS Practice</h1>
+            <p class="subtitle">Fill-in-the-blank Questions</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="controls">
+            <button id="generateBtn" class="btn primary">Generate New Practice Set</button>
+            <div id="loading" class="loading-indicator hidden">
+                <div class="spinner"></div>
+                <p>Generating practice set...</p>
+            </div>
+        </div>
+
+        <div class="practice-area hidden" id="practiceArea">
+            <div class="practice-container">
+                <div class="passage-container">
+                    <h2>Reading Passage</h2>
+                    <div id="passage" class="passage"></div>
+                </div>
+                
+                <div class="questions-container">
+                    <h2>Fill-in-the-blank Questions</h2>
+                    <div id="questions" class="questions">
+                        <!-- Questions will be dynamically generated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="translation-modal" id="translationModal">
+            <div class="translation-content">
+                <span id="translatedWord"></span>
+                <button id="closeTranslation" class="close-btn">&times;</button>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>Veritas IELTS Practice App &copy; 2025</p>
+        </div>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
