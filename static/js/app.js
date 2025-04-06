@@ -154,6 +154,7 @@ async function generatePracticeSet() {
     try {
         // Show loading indicator
         loadingIndicator.classList.remove('hidden');
+        loadingIndicator.innerHTML = '<p>Generating practice set. This may take up to 60 seconds...</p>';
         generateBtn.disabled = true;
         
         // Clear any existing highlights
@@ -162,33 +163,67 @@ async function generatePracticeSet() {
         // Get the custom API key if it exists
         const customApiKey = localStorage.getItem('geminiApiKey');
         
-        // Make API request to generate new practice set
-        const response = await fetch('/api/generate', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                apiKey: customApiKey || ''
-            })
-        });
+        // Set up timeout for the fetch request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
+        try {
+            // Make API request to generate new practice set
+            const response = await fetch('/api/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    apiKey: customApiKey || ''
+                }),
+                signal: controller.signal
+            });
+            
+            // Clear the timeout since the request has completed
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) {
+                if (response.status === 502) {
+                    throw new Error('Server timeout. The generation process took too long. Please try again.');
+                } else {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+            }
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            currentPracticeSet = data;
+            currentPracticeId = data.id; // Store the ID for future reference
+            
+            // Display the practice set
+            displayPracticeSet(data);
+        } catch (fetchError) {
+            if (fetchError.name === 'AbortError') {
+                throw new Error('Request timed out. The server is taking too long to respond. Please try again later.');
+            }
+            throw fetchError;
         }
-        
-        const data = await response.json();
-        currentPracticeSet = data;
-        currentPracticeId = data.id; // Store the ID for future reference
-        
-        // Display the practice set
-        displayPracticeSet(data);
     } catch (error) {
         console.error('Error generating practice set:', error);
-        alert('Error generating practice set. Please try again.');
+        alert(`Error: ${error.message || 'There was a problem generating the practice set. Please try again.'}`);
+        
+        // Clear the practice area if there was an error
+        practiceArea.innerHTML = `
+            <div class="error-message">
+                <h3>Error generating practice set</h3>
+                <p>${error.message || 'There was a problem connecting to the server. Please try again later.'}</p>
+                <p>Try again by clicking the 'Generate New Practice Set' button.</p>
+            </div>
+        `;
     } finally {
         // Hide loading indicator
         loadingIndicator.classList.add('hidden');
+        loadingIndicator.innerHTML = '';
         generateBtn.disabled = false;
     }
 }

@@ -145,11 +145,23 @@ def generate_practice():
         }
         """
         
-        # Generate the response
-        response = model.generate_content(prompt)
-        
-        # Extract the JSON from the response
-        response_text = response.text
+        # Generate the response with a timeout
+        try:
+            # Set a timeout for the generation
+            response = model.generate_content(
+                prompt,
+                generation_config={
+                    "temperature": 0.7,
+                    "top_p": 0.95,
+                    "top_k": 40
+                }
+            )
+            
+            # Extract the JSON from the response
+            response_text = response.text
+        except Exception as generation_error:
+            print(f"Error in generation: {str(generation_error)}")
+            return jsonify({"error": "API timeout or generation error. Please try again."}), 500
         
         # Find JSON content within the response (handling potential markdown code blocks)
         json_content = response_text
@@ -241,8 +253,15 @@ def translate_word():
         # Create the prompt for translation
         prompt = f"Translate the English word '{word}' to Turkish. Return only the Turkish translation, nothing else."
         
-        # Generate the response
-        response = model.generate_content(prompt)
+        # Generate the response with simpler settings for translation
+        response = model.generate_content(
+            prompt,
+            generation_config={
+                "temperature": 0.2,
+                "top_p": 0.95,
+                "max_output_tokens": 50  # Short response for translations
+            }
+        )
         translation = response.text.strip()
         
         return jsonify({"word": word, "translation": translation})
@@ -318,4 +337,6 @@ def flask_app_handle_request(method, path, body_content=''):
     })
 
 if __name__ == '__main__':
+    # Add timeout configuration for gunicorn when running with it
+    app.config['TIMEOUT'] = 120  # 2 minute timeout
     app.run(debug=True, host='0.0.0.0', port=5000)
