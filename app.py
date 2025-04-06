@@ -7,6 +7,7 @@ import requests
 import json
 import uuid
 import datetime
+import threading
 from pathlib import Path
 
 # Load environment variables from .env file
@@ -20,12 +21,23 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
-# Create storage directory for practice sets if it doesn't exist
+# Create storage directories if they don't exist
 PRACTICE_SETS_DIR = Path('practice_sets')
 PRACTICE_SETS_DIR.mkdir(exist_ok=True)
 
+JOBS_DIR = Path('jobs')
+JOBS_DIR.mkdir(exist_ok=True)
+
 # Store the latest practice set ID
 current_practice_set_id = None
+
+# Store active jobs
+jobs = {}
+
+# Job statuses
+JOB_STATUS_PENDING = 'pending'
+JOB_STATUS_COMPLETED = 'completed'
+JOB_STATUS_FAILED = 'failed'
 
 @app.route('/')
 def index():
@@ -35,9 +47,7 @@ def index():
 
 @app.route('/api/generate', methods=['POST'])
 def generate_practice():
-    """Generate a new IELTS practice set using Gemini API"""
-    global current_practice_set_id
-    
+    """Start an asynchronous process to generate a new IELTS practice set"""
     # Get data from the request
     data = request.get_json() or {}
     custom_api_key = data.get('apiKey', '')
@@ -48,8 +58,41 @@ def generate_practice():
     if not api_key_to_use:
         return jsonify({"error": "No Gemini API key available"}), 500
     
+    # Generate a unique job ID
+    job_id = str(uuid.uuid4())
+    
+    # Create job status object
+    job_status = {
+        'id': job_id,
+        'status': JOB_STATUS_PENDING,
+        'created_at': datetime.datetime.now().isoformat(),
+        'practice_set_id': None,
+        'error': None
+    }
+    
+    # Save initial job status
+    save_job_status(job_id, job_status)
+    
+    # Start the generation process in a background thread
+    thread = threading.Thread(
+        target=generate_practice_async,
+        args=(job_id, api_key_to_use)
+    )
+    thread.daemon = True  # Thread will exit when main thread exits
+    thread.start()
+    
+    # Immediately return the job ID to the client
+    return jsonify({
+        'job_id': job_id,
+        'status': JOB_STATUS_PENDING
+    })
+
+def generate_practice_async(job_id, api_key_to_use):
+    """Asynchronously generate a practice set"""
+    global current_practice_set_id
+    
     try:
-        # Configure the model with potentially custom API key
+        # Configure the model with API key
         genai.configure(api_key=api_key_to_use)
         model = genai.GenerativeModel('gemini-2.5-pro-exp-03-25')
         
@@ -145,9 +188,9 @@ def generate_practice():
         }
         """
         
-        # Generate the response with a timeout
+        # Generate the response
         try:
-            # Set a timeout for the generation
+            # Generate content with the model
             response = model.generate_content(
                 prompt,
                 generation_config={
@@ -161,7 +204,11 @@ def generate_practice():
             response_text = response.text
         except Exception as generation_error:
             print(f"Error in generation: {str(generation_error)}")
-            return jsonify({"error": "API timeout or generation error. Please try again."}), 500
+            update_job_status(job_id, {
+                'status': JOB_STATUS_FAILED,
+                'error': f"API timeout or generation error: {str(generation_error)}"
+            })
+            return
         
         # Find JSON content within the response (handling potential markdown code blocks)
         json_content = response_text
@@ -179,6 +226,7 @@ def generate_practice():
         # Add metadata to the practice set
         practice_set['id'] = practice_id
         practice_set['created_at'] = datetime.datetime.now().isoformat()
+        practice_set['shareUrl'] = f"//?id={practice_id}"
         
         # Save the practice set to a file
         save_practice_set(practice_id, practice_set)
@@ -186,21 +234,46 @@ def generate_practice():
         # Update the current practice set ID
         current_practice_set_id = practice_id
         
-        # Return the practice set with its ID
-        return jsonify({
-            **practice_set,
-            "shareUrl": f"{request.host_url}?id={practice_id}"
+        # Update the job status to completed with the practice set ID
+        update_job_status(job_id, {
+            'status': JOB_STATUS_COMPLETED,
+            'practice_set_id': practice_id
         })
-    
+        
     except Exception as e:
         print(f"Error generating practice set: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        update_job_status(job_id, {
+            'status': JOB_STATUS_FAILED,
+            'error': str(e)
+        })
 
 def save_practice_set(practice_id, practice_set):
     """Save a practice set to a file"""
     practice_file = PRACTICE_SETS_DIR / f"{practice_id}.json"
     with open(practice_file, 'w', encoding='utf-8') as f:
         json.dump(practice_set, f, ensure_ascii=False, indent=2)
+        
+def save_job_status(job_id, job_status):
+    """Save job status to a file"""
+    job_file = JOBS_DIR / f"{job_id}.json"
+    with open(job_file, 'w', encoding='utf-8') as f:
+        json.dump(job_status, f, ensure_ascii=False, indent=2)
+    
+def load_job_status(job_id):
+    """Load job status from a file"""
+    job_file = JOBS_DIR / f"{job_id}.json"
+    if not job_file.exists():
+        return None
+        
+    with open(job_file, 'r', encoding='utf-8') as f:
+        return json.load(f)
+        
+def update_job_status(job_id, updates):
+    """Update job status with new values"""
+    job_status = load_job_status(job_id)
+    if job_status:
+        job_status.update(updates)
+        save_job_status(job_id, job_status)
 
 def load_practice_set(practice_id):
     """Load a practice set from a file"""
@@ -210,6 +283,34 @@ def load_practice_set(practice_id):
     
     with open(practice_file, 'r', encoding='utf-8') as f:
         return json.load(f)
+
+@app.route('/api/job-status', methods=['GET'])
+def check_job_status():
+    """Check the status of an asynchronous job"""
+    job_id = request.args.get('job_id')
+    
+    if not job_id:
+        return jsonify({"error": "No job ID provided"}), 400
+    
+    job_status = load_job_status(job_id)
+    
+    if job_status is None:
+        return jsonify({"error": "Job not found"}), 404
+    
+    # If job is completed, include the practice set ID
+    if job_status['status'] == JOB_STATUS_COMPLETED and job_status['practice_set_id']:
+        practice_id = job_status['practice_set_id']
+        practice_set = load_practice_set(practice_id)
+        
+        if practice_set:
+            # Return both job status and the practice set
+            return jsonify({
+                **job_status,
+                'practice_set': practice_set
+            })
+    
+    # Otherwise just return the job status
+    return jsonify(job_status)
 
 @app.route('/api/practice-set', methods=['GET'])
 def get_practice_set():

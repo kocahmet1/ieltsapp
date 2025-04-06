@@ -150,11 +150,15 @@ async function fetchExistingPracticeSet(practiceId = null) {
     }
 }
 
+// Poll interval in milliseconds
+const POLL_INTERVAL = 2000;  // 2 seconds
+const MAX_POLL_TIME = 180000; // 3 minutes
+
 async function generatePracticeSet() {
     try {
         // Show loading indicator
         loadingIndicator.classList.remove('hidden');
-        loadingIndicator.innerHTML = '<p>Generating practice set. This may take up to 60 seconds...</p>';
+        loadingIndicator.innerHTML = '<p>Starting generation process...</p>';
         generateBtn.disabled = true;
         
         // Clear any existing highlights
@@ -163,54 +167,70 @@ async function generatePracticeSet() {
         // Get the custom API key if it exists
         const customApiKey = localStorage.getItem('geminiApiKey');
         
-        // Set up timeout for the fetch request
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
+        // Step 1: Start the background job
+        const startResponse = await fetch('/api/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                apiKey: customApiKey || ''
+            })
+        });
         
-        try {
-            // Make API request to generate new practice set
-            const response = await fetch('/api/generate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    apiKey: customApiKey || ''
-                }),
-                signal: controller.signal
-            });
+        if (!startResponse.ok) {
+            throw new Error(`Failed to start generation process: ${startResponse.status}`);
+        }
+        
+        const jobData = await startResponse.json();
+        const jobId = jobData.job_id;
+        
+        if (!jobId) {
+            throw new Error('No job ID returned from server');
+        }
+        
+        // Step 2: Poll for job completion
+        loadingIndicator.innerHTML = `
+            <p>Generating practice set...</p>
+            <p class="small">This may take up to 3 minutes. The app is generating high-quality IELTS content.</p>
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+        `;
+        
+        const progressBar = document.getElementById('progressBar');
+        let elapsedTime = 0;
+        
+        // Start polling for job status
+        const practiceSet = await pollJobStatus(jobId, async (progress) => {
+            // Update progress indicator
+            elapsedTime += POLL_INTERVAL;
+            const percentage = Math.min((elapsedTime / MAX_POLL_TIME) * 100, 100);
+            progressBar.style.width = `${percentage}%`;
             
-            // Clear the timeout since the request has completed
-            clearTimeout(timeoutId);
-            
-            if (!response.ok) {
-                if (response.status === 502) {
-                    throw new Error('Server timeout. The generation process took too long. Please try again.');
-                } else {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
-                }
+            // Update message every 10 seconds
+            if (elapsedTime % 10000 === 0) {
+                const timeElapsed = Math.floor(elapsedTime / 1000);
+                loadingIndicator.innerHTML = `
+                    <p>Still working... (${timeElapsed}s elapsed)</p>
+                    <p class="small">Creating a high-quality IELTS practice set with reading passage and questions.</p>
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progressBar" style="width:${percentage}%"></div>
+                    </div>
+                `;
             }
-            
-            const data = await response.json();
-            
-            if (data.error) {
-                throw new Error(data.error);
-            }
-            
-            currentPracticeSet = data;
-            currentPracticeId = data.id; // Store the ID for future reference
-            
-            // Display the practice set
-            displayPracticeSet(data);
-        } catch (fetchError) {
-            if (fetchError.name === 'AbortError') {
-                throw new Error('Request timed out. The server is taking too long to respond. Please try again later.');
-            }
-            throw fetchError;
+        });
+        
+        // Successfully received practice set
+        if (practiceSet) {
+            currentPracticeSet = practiceSet;
+            currentPracticeId = practiceSet.id;
+            displayPracticeSet(practiceSet);
+        } else {
+            throw new Error('Failed to generate practice set after 3 minutes');
         }
     } catch (error) {
         console.error('Error generating practice set:', error);
-        alert(`Error: ${error.message || 'There was a problem generating the practice set. Please try again.'}`);
         
         // Clear the practice area if there was an error
         practiceArea.innerHTML = `
@@ -226,6 +246,51 @@ async function generatePracticeSet() {
         loadingIndicator.innerHTML = '';
         generateBtn.disabled = false;
     }
+}
+
+async function pollJobStatus(jobId, progressCallback) {
+    const startTime = Date.now();
+    
+    // Keep polling until we reach MAX_POLL_TIME
+    while (Date.now() - startTime < MAX_POLL_TIME) {
+        try {
+            // Call progress callback to update UI
+            if (progressCallback) {
+                progressCallback((Date.now() - startTime) / MAX_POLL_TIME);
+            }
+            
+            // Check job status
+            const response = await fetch(`/api/job-status?job_id=${jobId}`);
+            
+            if (!response.ok) {
+                console.error(`Error checking job status: ${response.status}`);
+                // Continue polling despite error
+                await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+                continue;
+            }
+            
+            const data = await response.json();
+            
+            // Check job status
+            if (data.status === 'completed') {
+                // Job completed successfully
+                return data.practice_set;
+            } else if (data.status === 'failed') {
+                // Job failed
+                throw new Error(data.error || 'Job failed without specific error message');
+            }
+            
+            // If job is still pending, wait before polling again
+            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+        } catch (error) {
+            console.error('Error polling job status:', error);
+            // Wait before trying again
+            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+        }
+    }
+    
+    // If we've reached here, we timed out
+    return null;
 }
 
 function displayPracticeSet(practiceSet) {
