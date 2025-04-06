@@ -179,6 +179,7 @@ async function generatePracticeSet() {
         
         const data = await response.json();
         currentPracticeSet = data;
+        currentPracticeId = data.id; // Store the ID for future reference
         
         // Display the practice set
         displayPracticeSet(data);
