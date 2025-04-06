@@ -38,11 +38,19 @@ def generate_practice():
     """Generate a new IELTS practice set using Gemini API"""
     global current_practice_set_id
     
-    if not GEMINI_API_KEY:
-        return jsonify({"error": "Gemini API key not configured"}), 500
+    # Get data from the request
+    data = request.get_json() or {}
+    custom_api_key = data.get('apiKey', '')
+    
+    # Use the custom API key if provided, otherwise fall back to environment key
+    api_key_to_use = custom_api_key if custom_api_key else GEMINI_API_KEY
+    
+    if not api_key_to_use:
+        return jsonify({"error": "No Gemini API key available"}), 500
     
     try:
-        # Configure the model
+        # Configure the model with potentially custom API key
+        genai.configure(api_key=api_key_to_use)
         model = genai.GenerativeModel('gemini-2.5-pro-exp-03-25')
         
         # Create the prompt for generating an IELTS practice set
@@ -211,17 +219,23 @@ def get_practice_set():
 @app.route('/api/translate', methods=['POST'])
 def translate_word():
     """Translate a word from English to Turkish using Gemini API"""
-    if not GEMINI_API_KEY:
-        return jsonify({"error": "Gemini API key not configured"}), 500
+    # Get data from the request
+    data = request.get_json()
+    word = data.get('word', '')
+    custom_api_key = data.get('apiKey', '')
+    
+    # Use the custom API key if provided, otherwise fall back to environment key
+    api_key_to_use = custom_api_key if custom_api_key else GEMINI_API_KEY
+    
+    if not api_key_to_use:
+        return jsonify({"error": "No Gemini API key available"}), 500
     
     try:
-        data = request.get_json()
-        word = data.get('word', '')
-        
         if not word:
             return jsonify({"error": "No word provided"}), 400
         
-        # Configure the model
+        # Configure the model with potentially custom API key
+        genai.configure(api_key=api_key_to_use)
         model = genai.GenerativeModel('gemini-2.0-flash')
         
         # Create the prompt for translation

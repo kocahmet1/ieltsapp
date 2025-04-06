@@ -16,6 +16,13 @@ const fitbQuestions = document.getElementById('fitbQuestions');
 const tfngQuestions = document.getElementById('tfngQuestions');
 const tfngQuestionsContainer = document.getElementById('tfngQuestionsContainer');
 
+// API Key Elements
+const apiKeyToggleBtn = document.getElementById('apiKeyToggleBtn');
+const apiKeySection = document.getElementById('apiKeySection');
+const apiKeyInput = document.getElementById('apiKeyInput');
+const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+const apiKeyStatus = document.getElementById('apiKeyStatus');
+
 // Current practice set data
 let currentPracticeSet = null;
 let activeHighlight = null;
@@ -29,6 +36,10 @@ closeTranslationBtn.addEventListener('click', hideTranslationModal);
 // Tab switching event listeners
 fitbTab.addEventListener('click', () => switchTab('fitb'));
 tfngTab.addEventListener('click', () => switchTab('tfng'));
+
+// API Key event listeners
+apiKeyToggleBtn.addEventListener('click', toggleApiKeySection);
+saveApiKeyBtn.addEventListener('click', saveApiKey);
 
 function initialize() {
     // Check for practice ID in URL parameters
@@ -45,6 +56,61 @@ function initialize() {
     
     // Add click event for word translation
     passageElement.addEventListener('click', handleWordClick);
+    
+    // Load saved API key if exists
+    loadSavedApiKey();
+}
+
+function toggleApiKeySection() {
+    apiKeySection.classList.toggle('hidden');
+    if (!apiKeySection.classList.contains('hidden')) {
+        apiKeyInput.focus();
+    }
+}
+
+function loadSavedApiKey() {
+    const savedKey = localStorage.getItem('geminiApiKey');
+    if (savedKey) {
+        // Don't display the actual key for security, but show it's set
+        apiKeyInput.value = '';
+        apiKeyStatus.textContent = 'Custom API key is set and will be used.';
+        apiKeyStatus.className = 'api-key-status success';
+    } else {
+        apiKeyStatus.textContent = 'No custom API key saved. The app will use its default key.';
+        apiKeyStatus.className = 'api-key-status';
+    }
+}
+
+function saveApiKey() {
+    const apiKey = apiKeyInput.value.trim();
+    
+    if (!apiKey) {
+        // If empty, remove any saved key
+        localStorage.removeItem('geminiApiKey');
+        apiKeyStatus.textContent = 'API key removed. The app will use its default key.';
+        apiKeyStatus.className = 'api-key-status';
+        return;
+    }
+    
+    // Basic validation - Gemini API keys are typically like 'AI...' and 43 chars
+    if (apiKey.length < 30) {
+        apiKeyStatus.textContent = 'Error: The key appears to be invalid. Please check and try again.';
+        apiKeyStatus.className = 'api-key-status error';
+        return;
+    }
+    
+    // Save the key to localStorage
+    localStorage.setItem('geminiApiKey', apiKey);
+    
+    // Update UI
+    apiKeyInput.value = '';
+    apiKeyStatus.textContent = 'Custom API key saved successfully!';
+    apiKeyStatus.className = 'api-key-status success';
+    
+    // Hide section after successful save
+    setTimeout(() => {
+        apiKeySection.classList.add('hidden');
+    }, 2000);
 }
 
 function switchTab(tabName) {
@@ -93,12 +159,18 @@ async function generatePracticeSet() {
         // Clear any existing highlights
         clearHighlights();
         
+        // Get the custom API key if it exists
+        const customApiKey = localStorage.getItem('geminiApiKey');
+        
         // Make API request to generate new practice set
         const response = await fetch('/api/generate', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
-            }
+            },
+            body: JSON.stringify({
+                apiKey: customApiKey || ''
+            })
         });
         
         if (!response.ok) {
@@ -494,13 +566,19 @@ async function handleWordClick(event) {
             positionTranslationModal(event);
             
             try {
+                // Get the custom API key if it exists
+                const customApiKey = localStorage.getItem('geminiApiKey');
+                
                 // Make API request for translation
                 const response = await fetch('/api/translate', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ word: selectedText })
+                    body: JSON.stringify({ 
+                        word: selectedText,
+                        apiKey: customApiKey || ''
+                    })
                 });
                 
                 if (!response.ok) {

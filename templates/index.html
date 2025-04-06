@@ -18,9 +18,21 @@
     <main class="container">
         <div class="controls">
             <button id="generateBtn" class="btn primary">Generate New Practice Set</button>
+            <button id="apiKeyToggleBtn" class="btn">API Key Settings</button>
             <div id="loading" class="loading-indicator hidden">
                 <div class="spinner"></div>
                 <p>Generating practice set...</p>
+            </div>
+            
+            <div id="apiKeySection" class="api-key-section hidden">
+                <div class="api-key-container">
+                    <p>Enter your Gemini API key to use your own quota. <a href="https://makersuite.google.com/app/apikey" target="_blank">Get a key here</a>.</p>
+                    <div class="api-key-input-container">
+                        <input type="password" id="apiKeyInput" placeholder="Enter your Gemini API key" class="api-key-input" />
+                        <button id="saveApiKeyBtn" class="btn secondary">Save Key</button>
+                    </div>
+                    <p id="apiKeyStatus" class="api-key-status">No custom API key saved.</p>
+                </div>
             </div>
         </div>
 

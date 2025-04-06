@@ -334,6 +334,57 @@ main {
     border-color: #e74c3c;
 }
 
+/* API Key Section */
+.api-key-section {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: #f5f9ff;
+    border: 1px solid #e1e1e1;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.api-key-container p {
+    margin-bottom: 0.75rem;
+}
+
+.api-key-container a {
+    color: #3498db;
+    text-decoration: none;
+}
+
+.api-key-container a:hover {
+    text-decoration: underline;
+}
+
+.api-key-input-container {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.api-key-input {
+    flex: 1;
+    padding: 0.7rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.api-key-status {
+    font-size: 0.9rem;
+    font-style: italic;
+    color: #777;
+}
+
+.api-key-status.success {
+    color: #27ae60;
+}
+
+.api-key-status.error {
+    color: #e74c3c;
+}
+
 /* Helper Classes */
 .hidden {
     display: none;
