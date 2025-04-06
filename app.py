@@ -48,24 +48,91 @@ def generate_practice():
         # Create the prompt for generating an IELTS practice set
         prompt = """
         Generate an IELTS reading practice set with the following components:
-        
-        1. A reading passage (800-1000 words) on a general interest topic.
-        2. 3-5 "fill-in-the-blank" questions based on the passage.
-        3. For each question, include the exact sentence from the passage where the answer can be found.
-        
-        IMPORTANT: The fill-in-the-blank answers must be exact words or short phrases copied directly from the passage.
-        
+
+        1. A reading passage (800-1000 words) on a general interest topic suitable for IELTS Academic.
+        2. 5 "fill-in-the-blank" questions based on the passage.
+        3. 5 "True/False/Not Given" questions based on the passage.
+        4. For each "fill-in-the-blank" question, include the exact sentence from the passage where the answer can be found.
+
+        IMPORTANT:
+        - The fill-in-the-blank answers must be exact words or short phrases copied directly from the passage.
+        - For True/False/Not Given questions, the answer must be exactly "True", "False", or "Not Given".
+        - For each True/False/Not Given question, you MUST include a relevant_passage field that contains the EXACT text from the passage that relates to the statement. This text must be a direct copy of 1-2 sentences from the passage without any modifications.
+
         Return the result in the following JSON format:
         {
             "passage": "Full text of the reading passage...",
             "questions": [
                 {
                     "id": 1,
-                    "question": "The text containing a _____ where a word from the passage should go",
+                    "question_type": "FITB",
+                    "question": "The text containing a _____ where a word from the passage should go.",
                     "answer": "exact word or phrase from the passage",
-                    "source_sentence": "The complete sentence from the passage that contains the answer"
+                    "source_sentence": "The complete sentence from the passage that contains the answer."
                 },
-                ...more questions...
+                {
+                    "id": 2,
+                    "question_type": "FITB",
+                    "question": "The text containing a _____ where a word from the passage should go.",
+                    "answer": "exact word or phrase from the passage",
+                    "source_sentence": "The complete sentence from the passage that contains the answer."
+                },
+                {
+                    "id": 3,
+                    "question_type": "FITB",
+                    "question": "The text containing a _____ where a word from the passage should go.",
+                    "answer": "exact word or phrase from the passage",
+                    "source_sentence": "The complete sentence from the passage that contains the answer."
+                },
+                {
+                    "id": 4,
+                    "question_type": "FITB",
+                    "question": "The text containing a _____ where a word from the passage should go.",
+                    "answer": "exact word or phrase from the passage",
+                    "source_sentence": "The complete sentence from the passage that contains the answer."
+                },
+                {
+                    "id": 5,
+                    "question_type": "FITB",
+                    "question": "The text containing a _____ where a word from the passage should go.",
+                    "answer": "exact word or phrase from the passage",
+                    "source_sentence": "The complete sentence from the passage that contains the answer."
+                },
+                {
+                    "id": 6,
+                    "question_type": "TFNG",
+                    "statement": "A statement to evaluate against the passage.",
+                    "answer": "True",
+                    "relevant_passage": "The portion of the passage that is relevant to this statement."
+                },
+                {
+                    "id": 7,
+                    "question_type": "TFNG",
+                    "statement": "A statement to evaluate against the passage.",
+                    "answer": "True",
+                    "relevant_passage": "The portion of the passage that is relevant to this statement."
+                },
+                {
+                    "id": 8,
+                    "question_type": "TFNG",
+                    "statement": "A statement to evaluate against the passage.",
+                    "answer": "True",
+                    "relevant_passage": "The portion of the passage that is relevant to this statement."
+                },
+                {
+                    "id": 9,
+                    "question_type": "TFNG",
+                    "statement": "A statement to evaluate against the passage.",
+                    "answer": "True",
+                    "relevant_passage": "The portion of the passage that is relevant to this statement."
+                },
+                {
+                    "id": 10,
+                    "question_type": "TFNG",
+                    "statement": "A statement to evaluate against the passage.",
+                    "answer": "True",
+                    "relevant_passage": "The portion of the passage that is relevant to this statement."
+                }
             ]
         }
         """

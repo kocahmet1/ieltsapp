@@ -9,6 +9,13 @@ const translatedWordElement = document.getElementById('translatedWord');
 const closeTranslationBtn = document.getElementById('closeTranslation');
 const shareUrlContainer = document.createElement('div'); // Will be added dynamically
 
+// Tab Elements
+const fitbTab = document.getElementById('fitbTab');
+const tfngTab = document.getElementById('tfngTab');
+const fitbQuestions = document.getElementById('fitbQuestions');
+const tfngQuestions = document.getElementById('tfngQuestions');
+const tfngQuestionsContainer = document.getElementById('tfngQuestionsContainer');
+
 // Current practice set data
 let currentPracticeSet = null;
 let activeHighlight = null;
@@ -18,6 +25,10 @@ let currentPracticeId = null;
 document.addEventListener('DOMContentLoaded', initialize);
 generateBtn.addEventListener('click', generatePracticeSet);
 closeTranslationBtn.addEventListener('click', hideTranslationModal);
+
+// Tab switching event listeners
+fitbTab.addEventListener('click', () => switchTab('fitb'));
+tfngTab.addEventListener('click', () => switchTab('tfng'));
 
 function initialize() {
     // Check for practice ID in URL parameters
@@ -34,6 +45,23 @@ function initialize() {
     
     // Add click event for word translation
     passageElement.addEventListener('click', handleWordClick);
+}
+
+function switchTab(tabName) {
+    // Remove active class from all tabs and tab content
+    fitbTab.classList.remove('active');
+    tfngTab.classList.remove('active');
+    fitbQuestions.classList.remove('active');
+    tfngQuestions.classList.remove('active');
+    
+    // Add active class to the selected tab and content
+    if (tabName === 'fitb') {
+        fitbTab.classList.add('active');
+        fitbQuestions.classList.add('active');
+    } else if (tabName === 'tfng') {
+        tfngTab.classList.add('active');
+        tfngQuestions.classList.add('active');
+    }
 }
 
 async function fetchExistingPracticeSet(practiceId = null) {
@@ -98,15 +126,47 @@ function displayPracticeSet(practiceSet) {
         return;
     }
     
+    // Debug: Log the practice set data to see its structure
+    console.log('Practice set data:', JSON.stringify(practiceSet, null, 2));
+    
     // Display the passage
     passageElement.textContent = practiceSet.passage;
     
-    // Display the questions
+    // Clear both question containers
     questionsElement.innerHTML = '';
+    tfngQuestionsContainer.innerHTML = '';
+    
+    // Separate questions by type
+    const fitbQuestions = [];
+    const tfngQuestions = [];
+    
     practiceSet.questions.forEach(question => {
-        const questionElement = createQuestionElement(question);
+        if (question.question_type === 'TFNG') {
+            tfngQuestions.push(question);
+        } else {
+            // Default to FITB for backward compatibility
+            fitbQuestions.push(question);
+        }
+    });
+    
+    // Display FITB questions
+    fitbQuestions.forEach(question => {
+        const questionElement = createFITBQuestionElement(question);
         questionsElement.appendChild(questionElement);
     });
+    
+    // Display TFNG questions
+    tfngQuestions.forEach(question => {
+        const questionElement = createTFNGQuestionElement(question);
+        tfngQuestionsContainer.appendChild(questionElement);
+    });
+    
+    // Show the appropriate tab based on which has questions
+    if (fitbQuestions.length > 0) {
+        switchTab('fitb');
+    } else if (tfngQuestions.length > 0) {
+        switchTab('tfng');
+    }
     
     // Display share URL if available
     if (practiceSet.shareUrl) {
@@ -143,7 +203,7 @@ function displayPracticeSet(practiceSet) {
     practiceArea.classList.remove('hidden');
 }
 
-function createQuestionElement(question) {
+function createFITBQuestionElement(question) {
     const questionDiv = document.createElement('div');
     questionDiv.className = 'question-item';
     questionDiv.dataset.questionId = question.id;
@@ -196,6 +256,86 @@ function createQuestionElement(question) {
     return questionDiv;
 }
 
+function createTFNGQuestionElement(question) {
+    const questionDiv = document.createElement('div');
+    questionDiv.className = 'question-item';
+    questionDiv.dataset.questionId = question.id;
+    
+    // Create statement text
+    const statementP = document.createElement('p');
+    statementP.className = 'question-text';
+    statementP.textContent = question.statement;
+    
+    // Create options for True/False/Not Given
+    const optionsDiv = document.createElement('div');
+    optionsDiv.className = 'tfng-options';
+    
+    const options = ['True', 'False', 'Not Given'];
+    const correctAnswer = question.answer;
+    
+    options.forEach(option => {
+        const optionBtn = document.createElement('button');
+        optionBtn.className = 'tfng-option';
+        optionBtn.textContent = option;
+        optionBtn.dataset.value = option;
+        
+        // Add click event for selecting this option
+        optionBtn.addEventListener('click', (e) => {
+            // Remove selected class from all options
+            const allOptions = optionsDiv.querySelectorAll('.tfng-option');
+            allOptions.forEach(opt => {
+                opt.classList.remove('selected', 'correct', 'incorrect');
+            });
+            
+            // Add selected class to this option
+            optionBtn.classList.add('selected');
+            
+            // Check if correct
+            if (option === correctAnswer) {
+                optionBtn.classList.add('correct');
+                resultDiv.textContent = '✓ Correct!';
+                resultDiv.className = 'answer-result correct';
+            } else {
+                optionBtn.classList.add('incorrect');
+                resultDiv.textContent = '✗ Incorrect. The answer is ' + correctAnswer + '.';
+                resultDiv.className = 'answer-result incorrect';
+            }
+            
+            // Show the result
+            resultDiv.classList.remove('hidden');
+        });
+        
+        optionsDiv.appendChild(optionBtn);
+    });
+    
+    // Create action buttons
+    const actionDiv = document.createElement('div');
+    actionDiv.className = 'question-actions';
+    
+    // Create highlight passage button if relevant_passage exists
+    if (question.relevant_passage) {
+        const highlightBtn = document.createElement('button');
+        highlightBtn.className = 'btn secondary';
+        highlightBtn.textContent = 'Highlight Passage';
+        highlightBtn.dataset.relevantPassage = question.relevant_passage;
+        highlightBtn.addEventListener('click', handleHighlightPassage);
+        
+        actionDiv.appendChild(highlightBtn);
+    }
+    
+    // Create result element (hidden initially)
+    const resultDiv = document.createElement('div');
+    resultDiv.className = 'answer-result hidden';
+    
+    // Append elements to question div
+    questionDiv.appendChild(statementP);
+    questionDiv.appendChild(optionsDiv);
+    questionDiv.appendChild(actionDiv);
+    questionDiv.appendChild(resultDiv);
+    
+    return questionDiv;
+}
+
 function handleRevealHint(event) {
     // Clear previous highlights
     clearHighlights();
@@ -221,6 +361,88 @@ function handleRevealHint(event) {
         // Scroll the highlighted text into view
         activeHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+}
+
+function handleHighlightPassage(event) {
+    // Clear previous highlights
+    clearHighlights();
+    
+    const relevantPassage = event.target.dataset.relevantPassage;
+    if (!relevantPassage) {
+        console.log('No relevant passage found in the dataset');
+        return;
+    }
+    
+    console.log('Trying to highlight:', relevantPassage);
+    
+    // Find the relevant passage and highlight it
+    const passageText = passageElement.textContent;
+    
+    // First try exact matching
+    if (passageText.includes(relevantPassage)) {
+        highlightText(relevantPassage);
+        return;
+    }
+    
+    // If exact match fails, try to find the best match
+    // Sometimes the AI might generate slightly different text than what's in the passage
+    console.log('No exact match found, trying fuzzy matching');
+    
+    // Try finding a sentence that contains most of the words
+    const relevantWords = relevantPassage.split(/\s+/).filter(word => word.length > 4);
+    const sentences = passageText.split(/[.!?]\s+/);
+    
+    let bestSentence = '';
+    let maxMatches = 0;
+    
+    sentences.forEach(sentence => {
+        let matchCount = 0;
+        relevantWords.forEach(word => {
+            if (sentence.toLowerCase().includes(word.toLowerCase())) {
+                matchCount++;
+            }
+        });
+        
+        if (matchCount > maxMatches && matchCount >= Math.min(3, relevantWords.length / 2)) {
+            maxMatches = matchCount;
+            bestSentence = sentence;
+        }
+    });
+    
+    if (bestSentence) {
+        console.log('Found best matching sentence:', bestSentence);
+        highlightText(bestSentence);
+    } else {
+        console.log('Could not find a good match for:', relevantPassage);
+        // As a fallback, just try the first 100 characters of the relevant passage
+        const shortPassage = relevantPassage.substring(0, 100);
+        if (passageText.includes(shortPassage)) {
+            highlightText(shortPassage);
+        }
+    }
+}
+
+function highlightText(text) {
+    const passageText = passageElement.textContent;
+    const index = passageText.indexOf(text);
+    
+    if (index !== -1) {
+        const beforeText = passageText.substring(0, index);
+        const afterText = passageText.substring(index + text.length);
+        
+        // Create the new HTML
+        passageElement.innerHTML = `
+            ${beforeText}<span class="highlight">${text}</span>${afterText}
+        `;
+        
+        // Store the active highlight reference
+        activeHighlight = passageElement.querySelector('.highlight');
+        
+        // Scroll the highlighted text into view
+        activeHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return true;
+    }
+    return false;
 }
 
 function clearHighlights() {

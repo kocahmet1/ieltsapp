@@ -32,9 +32,23 @@
                 </div>
                 
                 <div class="questions-container">
-                    <h2>Fill-in-the-blank Questions</h2>
-                    <div id="questions" class="questions">
-                        <!-- Questions will be dynamically generated here -->
+                    <div class="tabs">
+                        <button id="fitbTab" class="tab-button active">Fill in the Blanks</button>
+                        <button id="tfngTab" class="tab-button">True/False/Not Given</button>
+                    </div>
+                    
+                    <div id="fitbQuestions" class="question-tab active">
+                        <h2>Fill-in-the-blank Questions</h2>
+                        <div id="questions" class="questions">
+                            <!-- FITB Questions will be dynamically generated here -->
+                        </div>
+                    </div>
+                    
+                    <div id="tfngQuestions" class="question-tab">
+                        <h2>True/False/Not Given Questions</h2>
+                        <div id="tfngQuestionsContainer" class="questions">
+                            <!-- TFNG Questions will be dynamically generated here -->
+                        </div>
                     </div>
                 </div>
             </div>
