@@ -106,7 +106,12 @@ def generate_practice_async(job_id, api_key_to_use):
         4. For each "fill-in-the-blank" question, include the exact sentence from the passage where the answer can be found.
 
         IMPORTANT:
-        - The fill-in-the-blank answers must be exact words or short phrases copied directly from the passage.
+        - The fill-in-the-blank questions should be challenging:
+          * Use substantial paraphrasing of the original text
+          * Rephrase, reorder, and restructure the sentences from the passage
+          * Use synonyms and alternative phrasing while preserving meaning
+          * Avoid directly copying phrases from the passage except for the blank part
+        - The fill-in-the-blank answers must still be exact words or short phrases copied directly from the passage.
         - For True/False/Not Given questions, the answer must be exactly "True", "False", or "Not Given".
         - For each True/False/Not Given question, you MUST include a relevant_passage field that contains the EXACT text from the passage that relates to the statement. This text must be a direct copy of 1-2 sentences from the passage without any modifications.
 
