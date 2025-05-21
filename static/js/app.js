@@ -12,9 +12,17 @@ const shareUrlContainer = document.createElement('div'); // Will be added dynami
 // Tab Elements
 const fitbTab = document.getElementById('fitbTab');
 const tfngTab = document.getElementById('tfngTab');
+const mhTab = document.getElementById('mhTab'); // Matching Headings Tab
 const fitbQuestions = document.getElementById('fitbQuestions');
 const tfngQuestions = document.getElementById('tfngQuestions');
 const tfngQuestionsContainer = document.getElementById('tfngQuestionsContainer');
+const mhQuestions = document.getElementById('mhQuestions'); // Matching Headings Content Area
+
+// Matching Headings Specific Elements
+const mhHeadingsList = document.getElementById('mhHeadingsList');
+const mhQuestionArea = document.getElementById('mhQuestionArea');
+const mhCheckAnswersBtn = document.getElementById('mhCheckAnswersBtn');
+const mhResults = document.getElementById('mhResults');
 
 // API Key Elements
 const apiKeyToggleBtn = document.getElementById('apiKeyToggleBtn');
@@ -36,6 +44,7 @@ closeTranslationBtn.addEventListener('click', hideTranslationModal);
 // Tab switching event listeners
 fitbTab.addEventListener('click', () => switchTab('fitb'));
 tfngTab.addEventListener('click', () => switchTab('tfng'));
+mhTab.addEventListener('click', () => switchTab('mh')); // Event listener for MH Tab
 
 // API Key event listeners
 apiKeyToggleBtn.addEventListener('click', toggleApiKeySection);
@@ -117,8 +126,10 @@ function switchTab(tabName) {
     // Remove active class from all tabs and tab content
     fitbTab.classList.remove('active');
     tfngTab.classList.remove('active');
+    mhTab.classList.remove('active'); 
     fitbQuestions.classList.remove('active');
     tfngQuestions.classList.remove('active');
+    mhQuestions.classList.remove('active');
     
     // Add active class to the selected tab and content
     if (tabName === 'fitb') {
@@ -127,6 +138,9 @@ function switchTab(tabName) {
     } else if (tabName === 'tfng') {
         tfngTab.classList.add('active');
         tfngQuestions.classList.add('active');
+    } else if (tabName === 'mh') {
+        mhTab.classList.add('active');
+        mhQuestions.classList.add('active');
     }
 }
 
@@ -174,7 +188,8 @@ async function generatePracticeSet() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                apiKey: customApiKey || ''
+                apiKey: customApiKey || '',
+                question_type: 'matching_headings' // Reverted to matching_headings
             })
         });
         
@@ -294,53 +309,89 @@ async function pollJobStatus(jobId, progressCallback) {
 }
 
 function displayPracticeSet(practiceSet) {
-    if (!practiceSet || !practiceSet.passage || !practiceSet.questions) {
-        console.error('Invalid practice set data:', practiceSet);
+function displayPracticeSet(practiceSet) {
+    currentPracticeSet = practiceSet; // Store the full practice set globally
+
+    if (!practiceSet || !practiceSet.passage) {
+        console.error('Invalid practice set data: Missing passage.', practiceSet);
+        practiceArea.innerHTML = `<div class="error-message"><h3>Error</h3><p>Invalid practice set data received.</p></div>`;
+        loadingIndicator.classList.add('hidden');
         return;
     }
-    
-    // Debug: Log the practice set data to see its structure
-    console.log('Practice set data:', JSON.stringify(practiceSet, null, 2));
-    
-    // Display the passage
-    passageElement.textContent = practiceSet.passage;
-    
-    // Clear both question containers
-    questionsElement.innerHTML = '';
-    tfngQuestionsContainer.innerHTML = '';
-    
-    // Separate questions by type
-    const fitbQuestions = [];
-    const tfngQuestions = [];
-    
-    practiceSet.questions.forEach(question => {
-        if (question.question_type === 'TFNG') {
-            tfngQuestions.push(question);
-        } else {
-            // Default to FITB for backward compatibility
-            fitbQuestions.push(question);
-        }
-    });
-    
-    // Display FITB questions
-    fitbQuestions.forEach(question => {
-        const questionElement = createFITBQuestionElement(question);
-        questionsElement.appendChild(questionElement);
-    });
-    
-    // Display TFNG questions
-    tfngQuestions.forEach(question => {
-        const questionElement = createTFNGQuestionElement(question);
-        tfngQuestionsContainer.appendChild(questionElement);
-    });
-    
-    // Show the appropriate tab based on which has questions
-    if (fitbQuestions.length > 0) {
-        switchTab('fitb');
-    } else if (tfngQuestions.length > 0) {
-        switchTab('tfng');
+
+    console.log('Displaying Practice Set:', JSON.stringify(practiceSet, null, 2));
+
+    // Clear previous content
+    passageElement.innerHTML = ''; // Clear passage
+    questionsElement.innerHTML = ''; // Clear FITB questions
+    tfngQuestionsContainer.innerHTML = ''; // Clear TFNG questions
+    if (mhHeadingsList) mhHeadingsList.innerHTML = ''; // Clear MH headings
+    if (mhQuestionArea) mhQuestionArea.innerHTML = ''; // Clear MH question area
+    if (mhResults) {
+        mhResults.innerHTML = ''; // Clear MH results
+        mhResults.classList.add('hidden');
     }
     
+    // Always display the passage
+    passageElement.textContent = practiceSet.passage;
+
+    const questionType = practiceSet.question_type;
+
+    if (questionType === 'matching_headings') {
+        if (!practiceSet.paragraphs || !practiceSet.headings || !practiceSet.answers) {
+            console.error('Invalid Matching Headings data:', practiceSet);
+            practiceArea.innerHTML = `<div class="error-message"><h3>Error</h3><p>Invalid Matching Headings data received.</p></div>`;
+            return;
+        }
+        displayMHContent(practiceSet);
+        switchTab('mh');
+    } else if (questionType === 'mixed_fitb_tfng' || (!questionType && practiceSet.questions)) {
+        // Handle FITB/TFNG types or older data that has a 'questions' array
+        if (!practiceSet.questions || !Array.isArray(practiceSet.questions)) {
+             console.error('Invalid mixed_fitb_tfng data: Missing questions array.', practiceSet);
+             practiceArea.innerHTML = `<div class="error-message"><h3>Error</h3><p>Invalid FITB/TFNG data received.</p></div>`;
+             return;
+        }
+        const fitbItems = [];
+        const tfngItems = [];
+        
+        practiceSet.questions.forEach(question => {
+            if (question.question_type === 'TFNG') {
+                tfngItems.push(question);
+            } else if (question.question_type === 'FITB') {
+                fitbItems.push(question);
+            } else {
+                // For older data, assume FITB if not specified
+                console.warn('Question type not specified, assuming FITB:', question);
+                fitbItems.push(question);
+            }
+        });
+
+        fitbItems.forEach(question => {
+            const questionElement = createFITBQuestionElement(question);
+            questionsElement.appendChild(questionElement);
+        });
+
+        tfngItems.forEach(question => {
+            const questionElement = createTFNGQuestionElement(question);
+            tfngQuestionsContainer.appendChild(questionElement);
+        });
+
+        if (fitbItems.length > 0) {
+            switchTab('fitb');
+        } else if (tfngItems.length > 0) {
+            switchTab('tfng');
+        } else {
+            // No questions of either type, maybe show a message or default tab
+            switchTab('fitb'); // Default to FITB tab
+        }
+    } else {
+        console.error('Unknown or invalid question_type:', questionType, practiceSet);
+        practiceArea.innerHTML = `<div class="error-message"><h3>Error</h3><p>Unknown practice set format.</p></div>`;
+        loadingIndicator.classList.add('hidden');
+        return;
+    }
+
     // Display share URL if available
     if (practiceSet.shareUrl) {
         // Create or update share URL container
@@ -376,6 +427,91 @@ function displayPracticeSet(practiceSet) {
     practiceArea.classList.remove('hidden');
 }
 
+// --- Matching Headings Functions ---
+function displayMHContent(mhData) {
+    if (!mhHeadingsList || !mhQuestionArea || !passageElement) {
+        console.error("MH DOM elements not found!");
+        return;
+    }
+    // Passage is already set by displayPracticeSet
+    // passageElement.textContent = mhData.passage; // Ensure passage is set
+
+    // Render Headings List
+    let headingsHtml = '<p><strong>Instructions:</strong> Match the headings below to the correct paragraphs in the passage. There are more headings than paragraphs, so you will not use them all.</p><ul>';
+    mhData.headings.forEach(heading => {
+        headingsHtml += `<li><strong>${heading.id}.</strong> ${heading.text}</li>`;
+    });
+    headingsHtml += '</ul>';
+    mhHeadingsList.innerHTML = headingsHtml;
+
+    // Render Question Area (Paragraphs with Select Dropdowns)
+    mhQuestionArea.innerHTML = ''; // Clear previous
+    mhData.paragraphs.forEach(paragraph => {
+        const paraDiv = document.createElement('div');
+        paraDiv.className = 'mh-paragraph-selection question-item'; // Added question-item for consistent styling
+
+        const label = document.createElement('label');
+        label.textContent = `Paragraph ${paragraph.id}: `;
+        label.htmlFor = `select-p-${paragraph.id}`;
+
+        const select = document.createElement('select');
+        select.dataset.paragraphId = paragraph.id;
+        select.id = `select-p-${paragraph.id}`;
+
+        let optionsHtml = '<option value="">Select a heading...</option>';
+        mhData.headings.forEach(heading => {
+            optionsHtml += `<option value="${heading.id}">${heading.id}. ${heading.text}</option>`;
+        });
+        select.innerHTML = optionsHtml;
+        
+        // Add event listener to clear result styling on change
+        select.addEventListener('change', () => {
+            select.classList.remove('correct', 'incorrect');
+            if(mhResults) mhResults.classList.add('hidden');
+        });
+
+        paraDiv.appendChild(label);
+        paraDiv.appendChild(select);
+        mhQuestionArea.appendChild(paraDiv);
+    });
+}
+
+if (mhCheckAnswersBtn) {
+    mhCheckAnswersBtn.addEventListener('click', () => {
+        if (!currentPracticeSet || currentPracticeSet.question_type !== 'matching_headings' || !mhQuestionArea || !mhResults) {
+            console.error("Cannot check MH answers: No current MH set or DOM elements missing.");
+            return;
+        }
+
+        const correctAnswers = currentPracticeSet.answers;
+        const paragraphsData = currentPracticeSet.paragraphs;
+        let correctCount = 0;
+
+        const selectElements = mhQuestionArea.querySelectorAll('select[data-paragraph-id]');
+        
+        selectElements.forEach(select => {
+            const paragraphId = select.dataset.paragraphId;
+            const selectedHeadingId = select.value;
+            const correctAnswerId = correctAnswers[paragraphId];
+
+            select.classList.remove('correct', 'incorrect'); // Reset classes
+
+            if (selectedHeadingId === correctAnswerId) {
+                correctCount++;
+                select.classList.add('correct');
+            } else if (selectedHeadingId !== "") {
+                select.classList.add('incorrect');
+            }
+        });
+
+        mhResults.textContent = `You matched ${correctCount} out of ${paragraphsData.length} headings correctly.`;
+        mhResults.className = 'mh-results answer-result'; // Remove 'hidden'
+        mhResults.classList.remove('hidden');
+    });
+}
+// --- End Matching Headings Functions ---
+
+
 function createFITBQuestionElement(question) {
     const questionDiv = document.createElement('div');
     questionDiv.className = 'question-item';
@@ -394,7 +530,7 @@ function createFITBQuestionElement(question) {
     answerInput.dataset.correctAnswer = question.answer;
     
     // Add event listener for checking answer
-    answerInput.addEventListener('input', handleAnswerInput);
+    answerInput.addEventListener('input', (event) => handleAnswerInput(event.target));
     
     // Create action buttons
     const actionDiv = document.createElement('div');
@@ -626,12 +762,14 @@ function clearHighlights() {
     }
 }
 
-function handleAnswerInput(event) {
-    const input = event.target;
-    const resultDiv = input.parentElement.querySelector('.answer-result');
+function handleAnswerInput(inputElement) {
+    // const input = event.target;
+    const resultDiv = inputElement.parentElement.querySelector('.answer-result');
     
     // Hide the result when the user starts typing again
-    resultDiv.classList.add('hidden');
+    if (resultDiv) {
+        resultDiv.classList.add('hidden');
+    }
 }
 
 function checkAnswer(inputElement) {
