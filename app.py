@@ -263,7 +263,7 @@ def generate_practice_async(job_id, api_key_to_use, question_type='fitb'):
     try:
         # Configure the model with API key
         genai.configure(api_key=api_key_to_use)
-        model = genai.GenerativeModel('models/gemini-2.5-pro-preview-03-25')
+        model = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
         
         prompt_fitb_tfng = """
         Generate an IELTS reading practice set with the following components:
