@@ -569,7 +569,6 @@ async function pollJobStatus(jobId, progressCallback) {
 }
 
 function displayPracticeSet(practiceSet) {
-function displayPracticeSet(practiceSet) {
     currentPracticeSet = practiceSet; // Store the full practice set globally
 
     if (!practiceSet || !practiceSet.passage) {
