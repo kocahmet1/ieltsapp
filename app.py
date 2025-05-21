@@ -95,6 +95,7 @@ def generate_practice_async(job_id, api_key_to_use):
         # Configure the model with API key
         genai.configure(api_key=api_key_to_use)
         model = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
+
         
         # Create the prompt for generating an IELTS practice set
         prompt = """
