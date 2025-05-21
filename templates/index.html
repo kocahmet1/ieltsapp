@@ -16,6 +16,73 @@
     </header>
 
     <main class="container">
+        <!-- Auth Navigation -->
+        <nav id="authNav" style="margin-bottom: 1.5rem; padding: 1rem; background-color: #e9ecef; border-radius: 8px; text-align: right;">
+            <span id="currentUserDisplay" style="display:none; margin-right: 15px; font-weight: 500;"></span>
+            <button id="loginNavBtn" class="btn auth-nav-btn" style="display:none;">Login</button>
+            <button id="registerNavBtn" class="btn auth-nav-btn" style="display:none;">Register</button>
+            <button id="progressNavBtn" class="btn auth-nav-btn" style="display:none;">My Progress</button>
+            <button id="logoutNavBtn" class="btn auth-nav-btn" style="display:none;">Logout</button>
+        </nav>
+        <!-- End Auth Navigation -->
+
+        <!-- Registration Section (Initially Hidden) -->
+        <div id="registrationSection" class="auth-section" style="display:none; margin-bottom: 2rem; padding: 1.5rem; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h2>Register</h2>
+            <form id="registerForm">
+                <div style="margin-bottom: 1rem;">
+                    <label for="registerUsername" style="display: block; margin-bottom: 0.5rem;">Username:</label>
+                    <input type="text" id="registerUsername" name="username" required style="width: 100%; padding: 0.7rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label for="registerPassword" style="display: block; margin-bottom: 0.5rem;">Password:</label>
+                    <input type="password" id="registerPassword" name="password" required style="width: 100%; padding: 0.7rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+                </div>
+                <button type="submit" class="btn primary">Register</button>
+            </form>
+            <div id="registerMessage" class="auth-message" style="margin-top: 1rem; font-weight: 500;"></div>
+        </div>
+        <!-- End Registration Section -->
+
+        <!-- Login Section (Initially Hidden) -->
+        <div id="loginSection" class="auth-section" style="display:none; margin-bottom: 2rem; padding: 1.5rem; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h2>Login</h2>
+            <form id="loginForm">
+                <div style="margin-bottom: 1rem;">
+                    <label for="loginUsername" style="display: block; margin-bottom: 0.5rem;">Username:</label>
+                    <input type="text" id="loginUsername" name="username" required style="width: 100%; padding: 0.7rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label for="loginPassword" style="display: block; margin-bottom: 0.5rem;">Password:</label>
+                    <input type="password" id="loginPassword" name="password" required style="width: 100%; padding: 0.7rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+                </div>
+                <button type="submit" class="btn primary">Login</button>
+            </form>
+            <div id="loginMessage" class="auth-message" style="margin-top: 1rem; font-weight: 500;"></div>
+        </div>
+        <!-- End Login Section -->
+
+        <!-- Progress Display Section (Initially Hidden) -->
+        <div id="progressSection" class="auth-section" style="display:none; margin-bottom: 2rem; padding: 1.5rem; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h2>My Progress</h2>
+            <table id="progressTable" class="table" style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
+                <thead>
+                    <tr>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left; background-color: #f2f2f2;">Date Attempted</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left; background-color: #f2f2f2;">Practice Set ID</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left; background-color: #f2f2f2;">FITB Score</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left; background-color: #f2f2f2;">TFNG Score</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left; background-color: #f2f2f2;">MH Score</th>
+                    </tr>
+                </thead>
+                <tbody id="progressTableBody">
+                    <!-- Rows will be inserted by JavaScript -->
+                </tbody>
+            </table>
+            <p id="noProgressMessage" style="display:none; margin-top: 1rem; font-style: italic;">You have no saved progress yet.</p>
+        </div>
+        <!-- End Progress Display Section -->
+
         <div class="controls">
             <button id="generateBtn" class="btn primary">Generate New Practice Set</button>
             <button id="apiKeyToggleBtn" class="btn">API Key Settings</button>
@@ -47,6 +114,7 @@
                     <div class="tabs">
                         <button id="fitbTab" class="tab-button active">Fill in the Blanks</button>
                         <button id="tfngTab" class="tab-button">True/False/Not Given</button>
+                        <button id="mhTab" class="tab-button">Matching Headings</button>
                     </div>
                     
                     <div id="fitbQuestions" class="question-tab active">
@@ -60,6 +128,36 @@
                         <h2>True/False/Not Given Questions</h2>
                         <div id="tfngQuestionsContainer" class="questions">
                             <!-- TFNG Questions will be dynamically generated here -->
+                        </div>
+                    </div>
+
+                    <div id="mhQuestions" class="question-tab"> <!-- New Tab Content for Matching Headings -->
+                        <h2>Matching Headings</h2>
+                        <div class="questions"> <!-- Using 'questions' class for consistency -->
+                            <div id="mhHeadingsList" class="mh-headings-list">
+                                <!-- Headings will be dynamically populated here by JS -->
+                                <p><strong>Instructions:</strong> The reading passage has several paragraphs. Choose the correct heading for each paragraph from the list of headings below. There are more headings than paragraphs, so you will not use them all.</p>
+                                <!-- Example of how headings might look, to be generated by JS:
+                                <div class="heading-item" data-heading-id="i">i. Example Heading One</div>
+                                <div class="heading-item" data-heading-id="ii">ii. Example Heading Two</div>
+                                -->
+                            </div>
+                            <div id="mhQuestionArea" class="mh-question-area">
+                                <!-- Paragraph-heading selection will be dynamically populated here by JS -->
+                                <!-- Example for one paragraph:
+                                <div class="mh-paragraph-matching-item">
+                                    <p>Paragraph A: <select data-paragraph-id="A">
+                                        <option value="">Select Heading</option>
+                                        <option value="i">Heading i</option>
+                                        <option value="ii">Heading ii</option>
+                                    </select></p>
+                                </div>
+                                -->
+                            </div>
+                            <button id="mhCheckAnswersBtn" class="btn">Check Matching Headings Answers</button>
+                            <div id="mhResults" class="mh-results answer-result hidden">
+                                <!-- Results will be displayed here -->
+                            </div>
                         </div>
                     </div>
                 </div>
