@@ -73,10 +73,13 @@ def generate_practice():
     # Save initial job status
     save_job_status(job_id, job_status)
     
+    # Get the requested question type, default to 'fitb'
+    question_type = data.get('question_type', 'fitb')
+    
     # Start the generation process in a background thread
     thread = threading.Thread(
         target=generate_practice_async,
-        args=(job_id, api_key_to_use)
+        args=(job_id, api_key_to_use, question_type)
     )
     thread.daemon = True  # Thread will exit when main thread exits
     thread.start()
@@ -87,8 +90,8 @@ def generate_practice():
         'status': JOB_STATUS_PENDING
     })
 
-def generate_practice_async(job_id, api_key_to_use):
-    """Asynchronously generate a practice set"""
+def generate_practice_async(job_id, api_key_to_use, question_type='fitb'):
+    """Asynchronously generate a practice set based on question type"""
     global current_practice_set_id
     
     try:
@@ -96,8 +99,7 @@ def generate_practice_async(job_id, api_key_to_use):
         genai.configure(api_key=api_key_to_use)
         model = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
         
-        # Create the prompt for generating an IELTS practice set
-        prompt = """
+        prompt_fitb_tfng = """
         Generate an IELTS reading practice set with the following components:
 
         1. A reading passage (800-1000 words) on a general interest topic suitable for IELTS Academic.
@@ -189,10 +191,61 @@ def generate_practice_async(job_id, api_key_to_use):
                     "answer": "True",
                     "relevant_passage": "The portion of the passage that is relevant to this statement."
                 }
-            ]
+            ],
+            "question_type": "mixed_fitb_tfng" 
         }
         """
+
+        prompt_matching_headings = """
+        Generate an IELTS "Matching Headings" reading practice set with the following components:
+
+        1.  A reading passage (600-900 words) on a general interest topic suitable for IELTS Academic.
+            The passage should be divided into 3 to 5 distinct paragraphs.
+        2.  A list of headings. There should be 2 to 3 more headings than the number of paragraphs.
+        3.  The correct mapping of each paragraph to its corresponding heading.
+
+        Return the result in the following JSON format:
+        {
+            "passage": "Full text of the reading passage...",
+            "paragraphs": [
+                {"id": "A", "content": "Text of paragraph A..."},
+                {"id": "B", "content": "Text of paragraph B..."},
+                {"id": "C", "content": "Text of paragraph C..."}
+            ],
+            "headings": [
+                {"id": "i", "text": "Heading text 1"},
+                {"id": "ii", "text": "Heading text 2"},
+                {"id": "iii", "text": "Heading text 3"},
+                {"id": "iv", "text": "Heading text 4"},
+                {"id": "v", "text": "Heading text 5"}
+            ],
+            "answers": {
+                "A": "iii",
+                "B": "i",
+                "C": "v"
+            },
+            "question_type": "matching_headings"
+        }
+
+        IMPORTANT:
+        - The 'passage' field should contain the entire reading passage as a single string.
+        - The 'paragraphs' field must be a list of objects, where each object has:
+            - "id": A string identifier for the paragraph (e.g., "A", "B", "C").
+            - "content": The full text of that paragraph.
+        - The 'headings' field must be a list of objects, where each object has:
+            - "id": A string identifier for the heading (e.g., "i", "ii", "iii", "iv", "v").
+            - "text": The text of the heading.
+        - The 'answers' field must be an object mapping each paragraph "id" (e.g., "A") to the correct heading "id" (e.g., "iii").
+        - The 'question_type' field must be the string "matching_headings".
+        - Ensure the number of headings is greater than the number of paragraphs by 2 or 3.
+        - Ensure paragraph and heading IDs are distinct and follow the specified format (letters for paragraphs, Roman numerals for headings).
+        """
         
+        if question_type == 'matching_headings':
+            prompt = prompt_matching_headings
+        else: # Default to FITB/TFNG
+            prompt = prompt_fitb_tfng
+            
         # Generate the response
         try:
             # Generate content with the model
