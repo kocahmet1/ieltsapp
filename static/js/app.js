@@ -12,9 +12,17 @@ const shareUrlContainer = document.createElement('div'); // Will be added dynami
 // Tab Elements
 const fitbTab = document.getElementById('fitbTab');
 const tfngTab = document.getElementById('tfngTab');
+const mhTab = document.getElementById('mhTab'); // Matching Headings Tab
 const fitbQuestions = document.getElementById('fitbQuestions');
 const tfngQuestions = document.getElementById('tfngQuestions');
 const tfngQuestionsContainer = document.getElementById('tfngQuestionsContainer');
+const mhQuestions = document.getElementById('mhQuestions'); // Matching Headings Content Area
+
+// Matching Headings Specific Elements
+const mhHeadingsList = document.getElementById('mhHeadingsList');
+const mhQuestionArea = document.getElementById('mhQuestionArea');
+const mhCheckAnswersBtn = document.getElementById('mhCheckAnswersBtn');
+const mhResults = document.getElementById('mhResults');
 
 // API Key Elements
 const apiKeyToggleBtn = document.getElementById('apiKeyToggleBtn');
@@ -27,19 +35,96 @@ const apiKeyStatus = document.getElementById('apiKeyStatus');
 let currentPracticeSet = null;
 let activeHighlight = null;
 let currentPracticeId = null;
+let G_currentUserData = null; // Global variable for current user session data
+
+// Auth Form Elements (Registration)
+const registrationSection = document.getElementById('registrationSection'); // To show/hide
+const registerForm = document.getElementById('registerForm');
+const registerUsernameInput = document.getElementById('registerUsername');
+const registerPasswordInput = document.getElementById('registerPassword');
+const registerMessage = document.getElementById('registerMessage');
+
+// Auth Form Elements (Login)
+const loginSection = document.getElementById('loginSection'); // To show/hide
+const loginForm = document.getElementById('loginForm');
+const loginUsernameInput = document.getElementById('loginUsername');
+const loginPasswordInput = document.getElementById('loginPassword');
+const loginMessage = document.getElementById('loginMessage');
+
+// Auth Navigation Elements
+const authNav = document.getElementById('authNav'); // The nav container itself
+const loginNavBtn = document.getElementById('loginNavBtn');
+const registerNavBtn = document.getElementById('registerNavBtn');
+const currentUserDisplay = document.getElementById('currentUserDisplay');
+const progressNavBtn = document.getElementById('progressNavBtn');
+const logoutNavBtn = document.getElementById('logoutNavBtn');
+
+// Progress Display Elements
+const progressSection = document.getElementById('progressSection');
+const progressTableBody = document.getElementById('progressTableBody');
+const noProgressMessage = document.getElementById('noProgressMessage');
+
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', initialize);
-generateBtn.addEventListener('click', generatePracticeSet);
-closeTranslationBtn.addEventListener('click', hideTranslationModal);
+if (generateBtn) generateBtn.addEventListener('click', generatePracticeSet); // Ensure button exists
+if (closeTranslationBtn) closeTranslationBtn.addEventListener('click', hideTranslationModal);
 
 // Tab switching event listeners
-fitbTab.addEventListener('click', () => switchTab('fitb'));
-tfngTab.addEventListener('click', () => switchTab('tfng'));
+if (fitbTab) fitbTab.addEventListener('click', () => switchTab('fitb'));
+if (tfngTab) tfngTab.addEventListener('click', () => switchTab('tfng'));
+if (mhTab) mhTab.addEventListener('click', () => switchTab('mh')); // Event listener for MH Tab
 
 // API Key event listeners
-apiKeyToggleBtn.addEventListener('click', toggleApiKeySection);
-saveApiKeyBtn.addEventListener('click', saveApiKey);
+if (apiKeyToggleBtn) apiKeyToggleBtn.addEventListener('click', toggleApiKeySection);
+if (saveApiKeyBtn) saveApiKeyBtn.addEventListener('click', saveApiKey);
+
+// Registration Form Event Listener
+if (registerForm) {
+    registerForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const username = registerUsernameInput.value.trim();
+        const password = registerPasswordInput.value.trim();
+        registerMessage.textContent = '';
+        registerMessage.className = 'auth-message';
+
+
+        if (!username || !password) {
+            registerMessage.textContent = 'Please fill in all fields.';
+            registerMessage.classList.add('error'); // Optional: for styling error messages
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                registerMessage.textContent = data.message;
+                registerMessage.classList.remove('error');
+                registerMessage.classList.add('success'); // Optional: for styling success messages
+                registerForm.reset();
+                // Optionally hide the form or redirect after a short delay
+                // setTimeout(() => { registrationSection.style.display = 'none'; }, 2000);
+            } else {
+                registerMessage.textContent = 'Error: ' + (data.message || response.statusText);
+                registerMessage.classList.add('error');
+            }
+        } catch (error) {
+            console.error('Registration request failed:', error);
+            registerMessage.textContent = 'Registration request failed. Please try again later.';
+            registerMessage.classList.add('error');
+        }
+    });
+}
+
 
 function initialize() {
     // Check for practice ID in URL parameters
@@ -55,78 +140,267 @@ function initialize() {
     }
     
     // Add click event for word translation
-    passageElement.addEventListener('click', handleWordClick);
+    if (passageElement) passageElement.addEventListener('click', handleWordClick);
     
     // Load saved API key if exists
     loadSavedApiKey();
+
+    // Example: Show registration form (remove this in final implementation, use nav links)
+    // if(registrationSection) registrationSection.style.display = 'block'; 
+    checkLoginStatus(); // Check login status on page load
 }
 
+// --- Auth UI and Logic ---
+function updateAuthStateUI(data) {
+    G_currentUserData = data; // Store user data globally
+
+    if (!loginNavBtn || !registerNavBtn || !logoutNavBtn || !progressNavBtn || !currentUserDisplay || !loginSection || !registrationSection) {
+        console.warn("Auth UI elements not fully available on this page.");
+        if(authNav) authNav.style.display = 'block'; 
+        return;
+    }
+    
+    authNav.style.display = 'block'; 
+
+    if (data && data.isLoggedIn) {
+        loginNavBtn.style.display = 'none';
+        registerNavBtn.style.display = 'none';
+        loginSection.style.display = 'none';
+        registrationSection.style.display = 'none';
+
+        logoutNavBtn.style.display = 'inline-block';
+        progressNavBtn.style.display = 'inline-block'; 
+        currentUserDisplay.textContent = 'Welcome, ' + data.user.username;
+        currentUserDisplay.style.display = 'inline-block';
+    } else {
+        G_currentUserData = { isLoggedIn: false }; // Ensure G_currentUserData reflects logged out state
+        loginNavBtn.style.display = 'inline-block';
+        registerNavBtn.style.display = 'inline-block';
+        
+        logoutNavBtn.style.display = 'none';
+        progressNavBtn.style.display = 'none'; 
+        currentUserDisplay.style.display = 'none';
+        if (progressSection) progressSection.style.display = 'none'; // Hide progress section on logout
+
+        loginSection.style.display = 'none';
+        registrationSection.style.display = 'none';
+    }
+}
+
+async function checkLoginStatus() {
+    try {
+        const response = await fetch('/api/current_user');
+        if (!response.ok) { // Handle non-OK responses that are not network errors
+            console.error('Failed to fetch login status:', response.status, response.statusText);
+            updateAuthStateUI({ isLoggedIn: false }); // Assume logged out
+            return;
+        }
+        const data = await response.json();
+        updateAuthStateUI(data);
+    } catch (error) {
+        console.error('Error fetching login status (network or parsing error):', error);
+        updateAuthStateUI({ isLoggedIn: false }); // Assume logged out
+    }
+}
+
+if (loginNavBtn) {
+    loginNavBtn.addEventListener('click', () => {
+        if (loginSection) loginSection.style.display = 'block';
+        if (registrationSection) registrationSection.style.display = 'none';
+        if (progressSection) progressSection.style.display = 'none';
+        if (practiceArea) practiceArea.classList.add('hidden'); // Hide practice area
+        if (apiKeySection) apiKeySection.classList.add('hidden');
+        if (loginMessage) loginMessage.textContent = ''; 
+    });
+}
+
+if (registerNavBtn) {
+    registerNavBtn.addEventListener('click', () => {
+        if (registrationSection) registrationSection.style.display = 'block';
+        if (loginSection) loginSection.style.display = 'none';
+        if (progressSection) progressSection.style.display = 'none';
+        if (practiceArea) practiceArea.classList.add('hidden');  // Hide practice area
+        if (apiKeySection) apiKeySection.classList.add('hidden');
+        if (registerMessage) registerMessage.textContent = ''; 
+    });
+}
+
+if (progressNavBtn) {
+    progressNavBtn.addEventListener('click', () => {
+        if (progressSection) progressSection.style.display = 'block';
+        if (loginSection) loginSection.style.display = 'none';
+        if (registrationSection) registrationSection.style.display = 'none';
+        if (practiceArea) practiceArea.classList.add('hidden'); // Hide practice area
+        if (apiKeySection) apiKeySection.classList.add('hidden');
+        fetchAndDisplayProgress();
+    });
+}
+
+
+if (loginForm) {
+    loginForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const username = loginUsernameInput.value.trim();
+        const password = loginPasswordInput.value.trim();
+        loginMessage.textContent = '';
+        loginMessage.className = 'auth-message';
+
+        if (!username || !password) {
+            loginMessage.textContent = 'Please fill in all fields.';
+            loginMessage.classList.add('error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                loginMessage.textContent = data.message;
+                loginMessage.classList.add('success');
+                loginForm.reset();
+                await checkLoginStatus(); // Update UI based on new login state
+                if (loginSection) loginSection.style.display = 'none'; // Hide form on success
+            } else {
+                loginMessage.textContent = 'Error: ' + (data.message || response.statusText);
+                loginMessage.classList.add('error');
+            }
+        } catch (error) {
+            console.error('Login request failed:', error);
+            loginMessage.textContent = 'Login request failed. Please try again later.';
+            loginMessage.classList.add('error');
+        }
+    });
+}
+
+if (logoutNavBtn) {
+    logoutNavBtn.addEventListener('click', async () => {
+        try {
+            const response = await fetch('/api/logout', { method: 'POST' });
+            if (response.ok) {
+                await checkLoginStatus(); // Update UI based on new logout state
+            } else {
+                const data = await response.json();
+                console.error('Logout failed:', data.message || response.statusText);
+                alert('Logout failed. Please try again.'); // Simple alert for now
+            }
+        } catch (error) {
+            console.error('Logout request failed:', error);
+            alert('Logout request failed. Please try again.');
+        }
+    });
+}
+// --- End Auth UI and Logic ---
+
+// --- Progress Display Function ---
+async function fetchAndDisplayProgress() {
+    if (!progressTableBody || !noProgressMessage) {
+        console.error('Progress display elements not found.');
+        return;
+    }
+
+    progressTableBody.innerHTML = ''; // Clear previous progress
+    noProgressMessage.style.display = 'none'; // Hide no progress message
+
+    try {
+        const response = await fetch('/api/get_progress');
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({})); // Try to get error message from backend
+            throw new Error(`Failed to fetch progress: ${response.status} ${response.statusText} - ${errorData.message || ''}`);
+        }
+        const progressRecords = await response.json();
+
+        if (progressRecords.length === 0) {
+            noProgressMessage.style.display = 'block';
+        } else {
+            progressRecords.forEach(record => {
+                const row = progressTableBody.insertRow();
+                row.insertCell().textContent = record.date_attempted || '-';
+                row.insertCell().textContent = record.practice_set_id || '-';
+                row.insertCell().textContent = record.score_fitb || '-';
+                row.insertCell().textContent = record.score_tfng || '-';
+                row.insertCell().textContent = record.score_mh || '-';
+            });
+        }
+    } catch (error) {
+        console.error('Error fetching or displaying progress:', error);
+        progressTableBody.innerHTML = `<tr><td colspan="5" style="color: red; text-align: center;">Failed to load progress. ${error.message}</td></tr>`;
+    }
+}
+// --- End Progress Display Function ---
+
+
 function toggleApiKeySection() {
-    apiKeySection.classList.toggle('hidden');
-    if (!apiKeySection.classList.contains('hidden')) {
-        apiKeyInput.focus();
+    if (apiKeySection) {
+        apiKeySection.classList.toggle('hidden');
+        if (!apiKeySection.classList.contains('hidden')) {
+            if (apiKeyInput) apiKeyInput.focus();
+        }
     }
 }
 
 function loadSavedApiKey() {
     const savedKey = localStorage.getItem('geminiApiKey');
-    if (savedKey) {
-        // Don't display the actual key for security, but show it's set
-        apiKeyInput.value = '';
-        apiKeyStatus.textContent = 'Custom API key is set and will be used.';
-        apiKeyStatus.className = 'api-key-status success';
-    } else {
-        apiKeyStatus.textContent = 'No custom API key saved. The app will use its default key.';
-        apiKeyStatus.className = 'api-key-status';
+    if (apiKeyInput && apiKeyStatus) { // Ensure elements exist
+        const savedKey = localStorage.getItem('geminiApiKey');
+        if (savedKey) {
+            apiKeyInput.value = ''; // Don't display the actual key
+            apiKeyStatus.textContent = 'Custom API key is set and will be used.';
+            apiKeyStatus.className = 'api-key-status success';
+        } else {
+            apiKeyStatus.textContent = 'No custom API key saved. The app will use its default key.';
+            apiKeyStatus.className = 'api-key-status';
+        }
     }
 }
 
 function saveApiKey() {
-    const apiKey = apiKeyInput.value.trim();
-    
-    if (!apiKey) {
-        // If empty, remove any saved key
-        localStorage.removeItem('geminiApiKey');
-        apiKeyStatus.textContent = 'API key removed. The app will use its default key.';
-        apiKeyStatus.className = 'api-key-status';
-        return;
+    if (apiKeyInput && apiKeyStatus && apiKeySection) { // Ensure elements exist
+        const apiKey = apiKeyInput.value.trim();
+        
+        if (!apiKey) {
+            localStorage.removeItem('geminiApiKey');
+            apiKeyStatus.textContent = 'API key removed. The app will use its default key.';
+            apiKeyStatus.className = 'api-key-status';
+            return;
+        }
+        
+        if (apiKey.length < 30) { // Basic validation
+            apiKeyStatus.textContent = 'Error: The key appears to be invalid. Please check and try again.';
+            apiKeyStatus.className = 'api-key-status error';
+            return;
+        }
+        
+        localStorage.setItem('geminiApiKey', apiKey);
+        apiKeyInput.value = '';
+        apiKeyStatus.textContent = 'Custom API key saved successfully!';
+        apiKeyStatus.className = 'api-key-status success';
+        
+        setTimeout(() => {
+            apiKeySection.classList.add('hidden');
+        }, 2000);
     }
-    
-    // Basic validation - Gemini API keys are typically like 'AI...' and 43 chars
-    if (apiKey.length < 30) {
-        apiKeyStatus.textContent = 'Error: The key appears to be invalid. Please check and try again.';
-        apiKeyStatus.className = 'api-key-status error';
-        return;
-    }
-    
-    // Save the key to localStorage
-    localStorage.setItem('geminiApiKey', apiKey);
-    
-    // Update UI
-    apiKeyInput.value = '';
-    apiKeyStatus.textContent = 'Custom API key saved successfully!';
-    apiKeyStatus.className = 'api-key-status success';
-    
-    // Hide section after successful save
-    setTimeout(() => {
-        apiKeySection.classList.add('hidden');
-    }, 2000);
 }
 
 function switchTab(tabName) {
-    // Remove active class from all tabs and tab content
-    fitbTab.classList.remove('active');
-    tfngTab.classList.remove('active');
-    fitbQuestions.classList.remove('active');
-    tfngQuestions.classList.remove('active');
-    
-    // Add active class to the selected tab and content
-    if (tabName === 'fitb') {
+    // Deactivate all tabs and content
+    [fitbTab, tfngTab, mhTab].forEach(tab => tab && tab.classList.remove('active'));
+    [fitbQuestions, tfngQuestions, mhQuestions].forEach(content => content && content.classList.remove('active'));
+
+    // Activate selected tab and content
+    if (tabName === 'fitb' && fitbTab && fitbQuestions) {
         fitbTab.classList.add('active');
         fitbQuestions.classList.add('active');
-    } else if (tabName === 'tfng') {
+    } else if (tabName === 'tfng' && tfngTab && tfngQuestions) {
         tfngTab.classList.add('active');
         tfngQuestions.classList.add('active');
+    } else if (tabName === 'mh' && mhTab && mhQuestions) {
+        mhTab.classList.add('active');
+        mhQuestions.classList.add('active');
     }
 }
 
@@ -174,7 +448,8 @@ async function generatePracticeSet() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                apiKey: customApiKey || ''
+                apiKey: customApiKey || '',
+                question_type: 'matching_headings' // Reverted to matching_headings
             })
         });
         
@@ -294,53 +569,89 @@ async function pollJobStatus(jobId, progressCallback) {
 }
 
 function displayPracticeSet(practiceSet) {
-    if (!practiceSet || !practiceSet.passage || !practiceSet.questions) {
-        console.error('Invalid practice set data:', practiceSet);
+function displayPracticeSet(practiceSet) {
+    currentPracticeSet = practiceSet; // Store the full practice set globally
+
+    if (!practiceSet || !practiceSet.passage) {
+        console.error('Invalid practice set data: Missing passage.', practiceSet);
+        practiceArea.innerHTML = `<div class="error-message"><h3>Error</h3><p>Invalid practice set data received.</p></div>`;
+        loadingIndicator.classList.add('hidden');
         return;
     }
-    
-    // Debug: Log the practice set data to see its structure
-    console.log('Practice set data:', JSON.stringify(practiceSet, null, 2));
-    
-    // Display the passage
-    passageElement.textContent = practiceSet.passage;
-    
-    // Clear both question containers
-    questionsElement.innerHTML = '';
-    tfngQuestionsContainer.innerHTML = '';
-    
-    // Separate questions by type
-    const fitbQuestions = [];
-    const tfngQuestions = [];
-    
-    practiceSet.questions.forEach(question => {
-        if (question.question_type === 'TFNG') {
-            tfngQuestions.push(question);
-        } else {
-            // Default to FITB for backward compatibility
-            fitbQuestions.push(question);
-        }
-    });
-    
-    // Display FITB questions
-    fitbQuestions.forEach(question => {
-        const questionElement = createFITBQuestionElement(question);
-        questionsElement.appendChild(questionElement);
-    });
-    
-    // Display TFNG questions
-    tfngQuestions.forEach(question => {
-        const questionElement = createTFNGQuestionElement(question);
-        tfngQuestionsContainer.appendChild(questionElement);
-    });
-    
-    // Show the appropriate tab based on which has questions
-    if (fitbQuestions.length > 0) {
-        switchTab('fitb');
-    } else if (tfngQuestions.length > 0) {
-        switchTab('tfng');
+
+    console.log('Displaying Practice Set:', JSON.stringify(practiceSet, null, 2));
+
+    // Clear previous content
+    passageElement.innerHTML = ''; // Clear passage
+    questionsElement.innerHTML = ''; // Clear FITB questions
+    tfngQuestionsContainer.innerHTML = ''; // Clear TFNG questions
+    if (mhHeadingsList) mhHeadingsList.innerHTML = ''; // Clear MH headings
+    if (mhQuestionArea) mhQuestionArea.innerHTML = ''; // Clear MH question area
+    if (mhResults) {
+        mhResults.innerHTML = ''; // Clear MH results
+        mhResults.classList.add('hidden');
     }
     
+    // Always display the passage
+    passageElement.textContent = practiceSet.passage;
+
+    const questionType = practiceSet.question_type;
+
+    if (questionType === 'matching_headings') {
+        if (!practiceSet.paragraphs || !practiceSet.headings || !practiceSet.answers) {
+            console.error('Invalid Matching Headings data:', practiceSet);
+            practiceArea.innerHTML = `<div class="error-message"><h3>Error</h3><p>Invalid Matching Headings data received.</p></div>`;
+            return;
+        }
+        displayMHContent(practiceSet);
+        switchTab('mh');
+    } else if (questionType === 'mixed_fitb_tfng' || (!questionType && practiceSet.questions)) {
+        // Handle FITB/TFNG types or older data that has a 'questions' array
+        if (!practiceSet.questions || !Array.isArray(practiceSet.questions)) {
+             console.error('Invalid mixed_fitb_tfng data: Missing questions array.', practiceSet);
+             practiceArea.innerHTML = `<div class="error-message"><h3>Error</h3><p>Invalid FITB/TFNG data received.</p></div>`;
+             return;
+        }
+        const fitbItems = [];
+        const tfngItems = [];
+        
+        practiceSet.questions.forEach(question => {
+            if (question.question_type === 'TFNG') {
+                tfngItems.push(question);
+            } else if (question.question_type === 'FITB') {
+                fitbItems.push(question);
+            } else {
+                // For older data, assume FITB if not specified
+                console.warn('Question type not specified, assuming FITB:', question);
+                fitbItems.push(question);
+            }
+        });
+
+        fitbItems.forEach(question => {
+            const questionElement = createFITBQuestionElement(question);
+            questionsElement.appendChild(questionElement);
+        });
+
+        tfngItems.forEach(question => {
+            const questionElement = createTFNGQuestionElement(question);
+            tfngQuestionsContainer.appendChild(questionElement);
+        });
+
+        if (fitbItems.length > 0) {
+            switchTab('fitb');
+        } else if (tfngItems.length > 0) {
+            switchTab('tfng');
+        } else {
+            // No questions of either type, maybe show a message or default tab
+            switchTab('fitb'); // Default to FITB tab
+        }
+    } else {
+        console.error('Unknown or invalid question_type:', questionType, practiceSet);
+        practiceArea.innerHTML = `<div class="error-message"><h3>Error</h3><p>Unknown practice set format.</p></div>`;
+        loadingIndicator.classList.add('hidden');
+        return;
+    }
+
     // Display share URL if available
     if (practiceSet.shareUrl) {
         // Create or update share URL container
@@ -376,6 +687,133 @@ function displayPracticeSet(practiceSet) {
     practiceArea.classList.remove('hidden');
 }
 
+// --- Matching Headings Functions ---
+function displayMHContent(mhData) {
+    if (!mhHeadingsList || !mhQuestionArea || !passageElement) {
+        console.error("MH DOM elements not found!");
+        return;
+    }
+    // Passage is already set by displayPracticeSet
+    // passageElement.textContent = mhData.passage; // Ensure passage is set
+
+    // Render Headings List
+    let headingsHtml = '<p><strong>Instructions:</strong> Match the headings below to the correct paragraphs in the passage. There are more headings than paragraphs, so you will not use them all.</p><ul>';
+    mhData.headings.forEach(heading => {
+        headingsHtml += `<li><strong>${heading.id}.</strong> ${heading.text}</li>`;
+    });
+    headingsHtml += '</ul>';
+    mhHeadingsList.innerHTML = headingsHtml;
+
+    // Render Question Area (Paragraphs with Select Dropdowns)
+    mhQuestionArea.innerHTML = ''; // Clear previous
+    mhData.paragraphs.forEach(paragraph => {
+        const paraDiv = document.createElement('div');
+        paraDiv.className = 'mh-paragraph-selection question-item'; // Added question-item for consistent styling
+
+        const label = document.createElement('label');
+        label.textContent = `Paragraph ${paragraph.id}: `;
+        label.htmlFor = `select-p-${paragraph.id}`;
+
+        const select = document.createElement('select');
+        select.dataset.paragraphId = paragraph.id;
+        select.id = `select-p-${paragraph.id}`;
+
+        let optionsHtml = '<option value="">Select a heading...</option>';
+        mhData.headings.forEach(heading => {
+            optionsHtml += `<option value="${heading.id}">${heading.id}. ${heading.text}</option>`;
+        });
+        select.innerHTML = optionsHtml;
+        
+        // Add event listener to clear result styling on change
+        select.addEventListener('change', () => {
+            select.classList.remove('correct', 'incorrect');
+            if(mhResults) mhResults.classList.add('hidden');
+        });
+
+        paraDiv.appendChild(label);
+        paraDiv.appendChild(select);
+        mhQuestionArea.appendChild(paraDiv);
+    });
+}
+
+if (mhCheckAnswersBtn) {
+    mhCheckAnswersBtn.addEventListener('click', () => {
+        if (!currentPracticeSet || currentPracticeSet.question_type !== 'matching_headings' || !mhQuestionArea || !mhResults) {
+            console.error("Cannot check MH answers: No current MH set or DOM elements missing.");
+            return;
+        }
+
+        const correctAnswers = currentPracticeSet.answers;
+        const paragraphsData = currentPracticeSet.paragraphs;
+        let correctCount = 0;
+
+        const selectElements = mhQuestionArea.querySelectorAll('select[data-paragraph-id]');
+        
+        selectElements.forEach(select => {
+            const paragraphId = select.dataset.paragraphId;
+            const selectedHeadingId = select.value;
+            const correctAnswerId = correctAnswers[paragraphId];
+
+            select.classList.remove('correct', 'incorrect'); // Reset classes
+
+            if (selectedHeadingId === correctAnswerId) {
+                correctCount++;
+                select.classList.add('correct');
+            } else if (selectedHeadingId !== "") {
+                select.classList.add('incorrect');
+            }
+        });
+
+        mhResults.textContent = `You matched ${correctCount} out of ${paragraphsData.length} headings correctly.`;
+        mhResults.className = 'mh-results answer-result'; 
+        mhResults.classList.remove('hidden');
+        
+        // Save MH progress
+        saveUserProgress('mh', `${correctCount}/${paragraphsData.length}`);
+    });
+}
+
+// --- Function to Save User Progress ---
+async function saveUserProgress(questionType, scoreString) {
+    if (!G_currentUserData || !G_currentUserData.isLoggedIn) {
+        console.log('User not logged in. Progress not saved.');
+        return;
+    }
+    if (!currentPracticeId) {
+        console.error('No current practice set ID available to save progress.');
+        return;
+    }
+
+    const payload = {
+        practice_set_id: currentPracticeId 
+    };
+
+    if (questionType === 'fitb') payload.score_fitb = scoreString;
+    if (questionType === 'tfng') payload.score_tfng = scoreString;
+    if (questionType === 'mh') payload.score_mh = scoreString;
+
+    try {
+        const response = await fetch('/api/save_progress', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (response.ok) {
+            console.log('Progress saved:', data.message);
+            // Optionally, display a small success message to the user on the UI
+        } else {
+            console.error('Failed to save progress:', data.message || response.statusText);
+        }
+    } catch (error) {
+        console.error('Error saving progress (network):', error);
+    }
+}
+// --- End Matching Headings Functions ---
+
+
 function createFITBQuestionElement(question) {
     const questionDiv = document.createElement('div');
     questionDiv.className = 'question-item';
@@ -394,7 +832,7 @@ function createFITBQuestionElement(question) {
     answerInput.dataset.correctAnswer = question.answer;
     
     // Add event listener for checking answer
-    answerInput.addEventListener('input', handleAnswerInput);
+    answerInput.addEventListener('input', (event) => handleAnswerInput(event.target));
     
     // Create action buttons
     const actionDiv = document.createElement('div');
@@ -626,12 +1064,14 @@ function clearHighlights() {
     }
 }
 
-function handleAnswerInput(event) {
-    const input = event.target;
-    const resultDiv = input.parentElement.querySelector('.answer-result');
+function handleAnswerInput(inputElement) {
+    // const input = event.target;
+    const resultDiv = inputElement.parentElement.querySelector('.answer-result');
     
     // Hide the result when the user starts typing again
-    resultDiv.classList.add('hidden');
+    if (resultDiv) {
+        resultDiv.classList.add('hidden');
+    }
 }
 
 function checkAnswer(inputElement) {
